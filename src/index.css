@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+/* Hide native number-input spin buttons, which otherwise eat into the
+   text area and clip the third digit of 3-digit values (e.g. rank 106+). */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
