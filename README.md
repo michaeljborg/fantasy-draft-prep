@@ -65,7 +65,8 @@ src/
 │                               # not imported by the app)
 │
 └── components/
-    ├── Sidebar.tsx              # Left nav (Draft Board / My Teams / Notes / Draft Tree)
+    ├── Sidebar.tsx              # Left nav (Draft Board / My Teams / Notes /
+    │                            # Draft Tree) + Export/Import Data buttons
     ├── TopBanner.tsx            # Page header bar + shared Badge component
     │
     ├── MyTeamPanel.tsx          # "My Team" bubble: config form, Draft Order
@@ -261,6 +262,21 @@ looking fields later.
 reset on page reload — only *saved* teams, trees, notes, overrides, and the
 watchlist survive a refresh.
 
+**Export / Import**, in the sidebar's bottom section, moves all five keys
+between browsers/devices as one file:
+- **Export** bundles all five pieces of state (`overrides`, `savedTeams`,
+  `notes`, `trees`, `watchlist`) plus a `version` and `exportedAt` timestamp
+  into one JSON object, and triggers a browser download
+  (`fantasy-draft-prep-backup-YYYY-MM-DD.json`) via a `Blob` + temporary
+  `<a download>` element — no server involved.
+- **Import** reads the chosen file with `FileReader`, parses it defensively
+  (a malformed file shows an alert and changes nothing), asks for
+  confirmation since it **replaces** all five pieces of state outright (not
+  a merge), then calls the same five `setX` functions `App.tsx` already
+  owns — the existing `useEffect`s pick up the change and persist it to
+  `localStorage` automatically, so no separate import-specific persistence
+  code was needed.
+
 **The player pool itself** (`src/data/players.json`) is a static file
 bundled into the app at build time, not stored in `localStorage` — it's data,
 not user state. It was generated once from `src/data/fantasy_rankings.json`
@@ -339,9 +355,6 @@ regenerated/edited directly — there's no in-app data-refresh mechanism.
 - **No live-draft syncing** — the Draft Tree is an offline planning tool by
   design (per earlier project discussion), not connected to the live board;
   it doesn't know what you've actually drafted.
-- **No data export/import** — moving your saved data to another browser or
-  computer currently means manually copying the five `localStorage` keys via
-  DevTools; there's no in-app export/import yet.
 - **No automated tests** — correctness has been verified throughout
   development via `tsc`, `vite build`, and manual/Playwright-driven checks
   in the browser, not a test suite.

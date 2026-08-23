@@ -275,7 +275,7 @@ export function RankingsPanel({
   );
 }
 
-function Th({
+export function Th({
   label,
   width,
   active,

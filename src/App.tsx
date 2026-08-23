@@ -283,11 +283,61 @@ export default function App() {
     });
   }
 
+  function handleExportData() {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      overrides,
+      savedTeams,
+      notes,
+      trees,
+      watchlist: Array.from(watchlistIds),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `fantasy-draft-prep-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImportData(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(reader.result as string);
+        if (!data || typeof data !== "object") throw new Error("Invalid file");
+      } catch {
+        window.alert("Couldn't read that file — make sure it's a Fantasy Draft Prep export.");
+        return;
+      }
+      const confirmed = window.confirm(
+        "Import this file? It will replace all current rank overrides, saved teams, notes, draft trees, and your watchlist on this device."
+      );
+      if (!confirmed) return;
+      setOverrides((data.overrides as Record<string, RankOverride>) ?? {});
+      setSavedTeams(Array.isArray(data.savedTeams) ? (data.savedTeams as SavedTeam[]) : []);
+      setNotes(Array.isArray(data.notes) ? (data.notes as Note[]) : []);
+      setTrees(Array.isArray(data.trees) ? (data.trees as DraftTree[]) : []);
+      setWatchlistIds(new Set(Array.isArray(data.watchlist) ? (data.watchlist as string[]) : []));
+    };
+    reader.readAsText(file);
+  }
+
   const canSave = Object.values(selections).some(Boolean);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100">
-      <Sidebar active={activeView} onNavigate={setActiveView} />
+      <Sidebar
+        active={activeView}
+        onNavigate={setActiveView}
+        onExportData={handleExportData}
+        onImportData={handleImportData}
+      />
       <div className="flex flex-1 flex-col overflow-hidden">
         {activeView === "board" ? (
           <>

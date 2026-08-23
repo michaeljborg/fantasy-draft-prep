@@ -9,7 +9,7 @@ import {
 } from "../draftTree";
 import { getMyPicks } from "../snakeDraft";
 import { POSITION_STYLES } from "../positionStyles";
-import { PlayerSearchList } from "./PlayerSearchList";
+import { TreePlayerBoard } from "./TreePlayerBoard";
 import type { DraftTree, Player } from "../types";
 
 const CANVAS_PAD = 32;
@@ -58,7 +58,7 @@ export function DraftTreeEditor({ tree, players, onBack, onRename, onAddNode, on
           onChange={(e) => onRename(e.target.value)}
           className="rounded px-1 py-0.5 text-sm font-bold text-slate-900 outline-none hover:bg-slate-50 focus:bg-blue-50 focus:ring-1 focus:ring-blue-600"
         />
-        <div className="relative ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <Badge label={`${tree.config.teams} Teams`} />
           <Badge label={`Pick ${tree.config.slot}`} />
           <Badge label={`${tree.config.rounds} Rounds`} />
@@ -70,17 +70,6 @@ export function DraftTreeEditor({ tree, players, onBack, onRename, onAddNode, on
             >
               + Round 1 Option
             </button>
-          )}
-          {openPicker?.parentId === null && (
-            <div className="absolute right-0 top-full z-20 mt-1 rounded-md border border-slate-200 bg-white shadow-lg">
-              <PlayerSearchList
-                players={players}
-                excludeIds={new Set()}
-                onSelect={handleSelect}
-                autoFocus
-                placeholder="Search Round 1 pick..."
-              />
-            </div>
           )}
         </div>
       </div>
@@ -119,7 +108,6 @@ export function DraftTreeEditor({ tree, players, onBack, onRename, onAddNode, on
               const left = p.x + CANVAS_PAD;
               const top = p.y + CANVAS_PAD;
               const canAddChild = p.depth + 1 < picks.length;
-              const isPickerOpenHere = openPicker?.parentId === p.node.id;
               return (
                 <div key={p.node.id}>
                   <div
@@ -157,26 +145,28 @@ export function DraftTreeEditor({ tree, players, onBack, onRename, onAddNode, on
                       </button>
                     )}
                   </div>
-
-                  {isPickerOpenHere && (
-                    <div
-                      className="absolute z-20 rounded-md border border-slate-200 bg-white shadow-lg"
-                      style={{ left, top: top + TREE_NODE_HEIGHT + 6 }}
-                    >
-                      <PlayerSearchList
-                        players={players}
-                        excludeIds={collectPathPlayerIds(tree, p.node.id)}
-                        onSelect={handleSelect}
-                        autoFocus
-                      />
-                    </div>
-                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {openPicker && (
+        <TreePlayerBoard
+          players={players}
+          myPicks={picks}
+          excludeIds={collectPathPlayerIds(tree, openPicker.parentId)}
+          targetPick={picks[(openPicker.parentId ? byId.get(openPicker.parentId)?.depth ?? -1 : -1) + 1]}
+          title={
+            openPicker.parentId === null
+              ? "Select Round 1 Pick"
+              : `Select Round ${(byId.get(openPicker.parentId)?.depth ?? 0) + 2} Pick`
+          }
+          onSelect={handleSelect}
+          onClose={() => setOpenPicker(null)}
+        />
+      )}
     </div>
   );
 }

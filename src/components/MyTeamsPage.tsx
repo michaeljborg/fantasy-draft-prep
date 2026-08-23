@@ -1,7 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { PickRow } from "./MyTeamPanel";
 import { buildPositionalSlots } from "../rosterSlots";
 import type { SavedTeam, SavedTeamPick, Selections } from "../types";
+
+type ViewMode = "positional" | "draftOrder";
 
 interface MyTeamsPageProps {
   teams: SavedTeam[];
@@ -55,6 +57,8 @@ function TeamCard({
     [myPicks, selections, playersById]
   );
 
+  const [viewMode, setViewMode] = useState<ViewMode>("positional");
+
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center gap-2 border-b border-slate-200 px-5 py-4">
@@ -79,18 +83,43 @@ function TeamCard({
         <span>·</span>
         <span>{new Date(team.createdAt).toLocaleDateString()}</span>
       </div>
-      <ul>
-        {slots.map((slot, i) => (
-          <PickRow
-            key={`${slot.label}-${i}`}
-            label={slot.label}
-            isPositionLabel
-            sublabel={slot.pick ? `Pick ${slot.pick}` : undefined}
-            player={slot.playerId ? playersById[slot.playerId] : undefined}
-            isArmed={false}
-            onClick={() => {}}
-          />
+      <div className="flex gap-1 border-b border-slate-100 px-5 py-2">
+        {(["draftOrder", "positional"] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setViewMode(mode)}
+            className={`rounded px-2.5 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
+              viewMode === mode ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+            }`}
+          >
+            {mode === "positional" ? "Positional" : "Draft Order"}
+          </button>
         ))}
+      </div>
+      <ul>
+        {viewMode === "positional"
+          ? slots.map((slot, i) => (
+              <PickRow
+                key={`${slot.label}-${i}`}
+                label={slot.label}
+                isPositionLabel
+                sublabel={slot.pick ? `Pick ${slot.pick}` : undefined}
+                player={slot.playerId ? playersById[slot.playerId] : undefined}
+                isArmed={false}
+                onClick={() => {}}
+              />
+            ))
+          : myPicks.map((pick, i) => (
+              <PickRow
+                key={pick}
+                label={`R${i + 1}`}
+                sublabel={String(pick)}
+                player={selections[pick] ? playersById[selections[pick]!] : undefined}
+                isArmed={false}
+                onClick={() => {}}
+              />
+            ))}
       </ul>
     </div>
   );

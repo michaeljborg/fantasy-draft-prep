@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createTreeFromSavedTeam, createTreeFromScratch } from "../draftTree";
-import { PlayerSearchList } from "./PlayerSearchList";
+import { getMyPicks } from "../snakeDraft";
+import { TreePlayerBoard } from "./TreePlayerBoard";
 import type { DraftConfig, DraftTree, Player, SavedTeam } from "../types";
 
 interface DraftTreeListProps {
@@ -26,6 +27,7 @@ export function DraftTreeList({
 }: DraftTreeListProps) {
   const [importValue, setImportValue] = useState("");
   const [showScratchPicker, setShowScratchPicker] = useState(false);
+  const myPicks = useMemo(() => getMyPicks(config), [config]);
 
   function handleImport(teamId: string) {
     const team = savedTeams.find((t) => t.id === teamId);
@@ -72,28 +74,32 @@ export function DraftTreeList({
             </select>
           </label>
 
-          <div className="relative flex flex-col gap-1">
+          <div className="flex flex-col gap-1">
             <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
               Start From Scratch — Round 1 Pick
             </span>
             <button
               type="button"
-              onClick={() => setShowScratchPicker((s) => !s)}
+              onClick={() => setShowScratchPicker(true)}
               className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-left text-sm text-slate-400 outline-none hover:border-blue-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
             >
               Search a player...
             </button>
-            {showScratchPicker && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowScratchPicker(false)} />
-                <div className="absolute left-0 top-full z-20 mt-1 rounded-md border border-slate-200 bg-white shadow-lg">
-                  <PlayerSearchList players={players} onSelect={handleScratchPick} autoFocus />
-                </div>
-              </>
-            )}
           </div>
         </div>
       </div>
+
+      {showScratchPicker && (
+        <TreePlayerBoard
+          players={players}
+          myPicks={myPicks}
+          excludeIds={new Set()}
+          targetPick={myPicks[0]}
+          title="Select Round 1 Pick"
+          onSelect={handleScratchPick}
+          onClose={() => setShowScratchPicker(false)}
+        />
+      )}
 
       {trees.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-sm text-slate-400">
