@@ -66,6 +66,49 @@ export interface DraftTree {
   roots: DraftTreeNode[];
 }
 
+export type HockeyPosition = "C" | "LW" | "RW" | "D" | "G";
+
+interface HockeyPlayerBase {
+  id: string;
+  name: string;
+  positions: HockeyPosition[];
+  team: string;
+  /** Fantasy team name that owns this player as a keeper, or "FA" if unrostered and available in the draft pool. */
+  rosterStatus: string;
+  gamesPlayed: number;
+  fantasyPoints: number;
+  /** Preseason overall rank -- shared rank space across skaters and goalies. */
+  rankPreSeason: number;
+  /** Rank as of the end of last season -- tracked separately so both can be sorted on. */
+  rankCurrent: number;
+  percentRostered: number;
+}
+
+export interface HockeySkater extends HockeyPlayerBase {
+  kind: "skater";
+  /** Time on ice per game, e.g. "22:59". */
+  toiPerGame: string;
+  goals: number;
+  assists: number;
+  plusMinus: number;
+  powerPlayPoints: number;
+  shotsOnGoal: number;
+  hits: number;
+  blocks: number;
+}
+
+export interface HockeyGoalie extends HockeyPlayerBase {
+  kind: "goalie";
+  /** Total time on ice for the season (not per-game), e.g. "3,401:27". */
+  timeOnIce: string;
+  wins: number;
+  goalsAgainst: number;
+  saves: number;
+  shutouts: number;
+}
+
+export type HockeyPlayer = HockeySkater | HockeyGoalie;
+
 export type NoteColor = "yellow" | "blue" | "green" | "pink" | "purple" | "white";
 
 /** A freeform sticky note on the Notes canvas. x/y are pixel offsets within the canvas. */

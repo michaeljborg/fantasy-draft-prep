@@ -1,24 +1,40 @@
 import { useEffect, useMemo, useState } from "react";
+import rawHockeyPlayers from "./data/hockey_players.json";
 import rawPlayers from "./data/players.json";
 import { addTreeNode, deleteTreeNode } from "./draftTree";
 import { DraftTreePage } from "./components/DraftTreePage";
+import { HockeyDraftBoard } from "./components/HockeyDraftBoard";
+import { HockeyTeamPanel } from "./components/HockeyTeamPanel";
+import { buildHockeyRosterSlots, HOCKEY_ROSTER_TEMPLATE, type HockeyRosterSlotLabel } from "./hockeyRosterSlots";
 import { MyTeamPanel } from "./components/MyTeamPanel";
 import { MyTeamsPage } from "./components/MyTeamsPage";
 import { NOTE_COLORS, NotesPage } from "./components/NotesPage";
 import { RankingsPanel } from "./components/RankingsPanel";
-import { Sidebar, type View } from "./components/Sidebar";
+import { Sidebar, type Sport, type View } from "./components/Sidebar";
 import { TiersPanel } from "./components/TiersPanel";
 import { Badge, TopBanner } from "./components/TopBanner";
 import { WatchlistPanel } from "./components/WatchlistPanel";
 import { getMyPicks } from "./snakeDraft";
-import type { DraftConfig, DraftTree, Note, Player, RankOverride, SavedTeam, Selections } from "./types";
+import type { DraftConfig, DraftTree, HockeyPlayer, Note, Player, RankOverride, SavedTeam, Selections } from "./types";
 
+const MY_HOCKEY_TEAM = "The Bedardians";
+const SPORT_KEY = "fantasy-draft-sport";
+const HOCKEY_PICKS_KEY = "fantasy-draft-hockey-picks";
+const HOCKEY_TAKEN_KEY = "fantasy-draft-hockey-taken";
+const HOCKEY_KEEPERS_LOADED_KEY = "fantasy-draft-hockey-keepers-loaded";
+const HOCKEY_SLOT_OVERRIDES_KEY = "fantasy-draft-hockey-slot-overrides";
 const OVERRIDES_KEY = "fantasy-draft-overrides";
 const SAVED_TEAMS_KEY = "fantasy-draft-saved-teams";
 const NOTES_KEY = "fantasy-draft-notes";
 const TREES_KEY = "fantasy-draft-trees";
 const WATCHLIST_KEY = "fantasy-draft-watchlist";
 const players = rawPlayers as Player[];
+const hockeyPlayers = rawHockeyPlayers as HockeyPlayer[];
+
+function loadSport(): Sport {
+  const raw = localStorage.getItem(SPORT_KEY);
+  return raw === "hockey" ? "hockey" : "football";
+}
 
 function loadOverrides(): Record<string, RankOverride> {
   try {
@@ -35,6 +51,37 @@ function loadSavedTeams(): SavedTeam[] {
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
+  }
+}
+
+function loadHockeyPicks(): string[] {
+  try {
+    const raw = localStorage.getItem(HOCKEY_PICKS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function loadHockeyKeepersLoaded(): boolean {
+  return localStorage.getItem(HOCKEY_KEEPERS_LOADED_KEY) !== "false";
+}
+
+function loadHockeyTaken(): string[] {
+  try {
+    const raw = localStorage.getItem(HOCKEY_TAKEN_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function loadHockeySlotOverrides(): Partial<Record<string, HockeyRosterSlotLabel>> {
+  try {
+    const raw = localStorage.getItem(HOCKEY_SLOT_OVERRIDES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
   }
 }
 
@@ -77,6 +124,7 @@ function loadNotes(): Note[] {
 }
 
 export default function App() {
+  const [sport, setSport] = useState<Sport>(loadSport);
   const [overrides, setOverrides] = useState<Record<string, RankOverride>>(loadOverrides);
   const [config, setConfig] = useState<DraftConfig>({ teams: 12, slot: 6, rounds: 15 });
   const [selections, setSelections] = useState<Selections>({});
@@ -86,6 +134,33 @@ export default function App() {
   const [notes, setNotes] = useState<Note[]>(loadNotes);
   const [trees, setTrees] = useState<DraftTree[]>(loadTrees);
   const [watchlistIds, setWatchlistIds] = useState<Set<string>>(loadWatchlist);
+  const [hockeyDraftedIds, setHockeyDraftedIds] = useState<string[]>(loadHockeyPicks);
+  const [hockeyTakenIds, setHockeyTakenIds] = useState<string[]>(loadHockeyTaken);
+  const [hockeyKeepersLoaded, setHockeyKeepersLoaded] = useState<boolean>(loadHockeyKeepersLoaded);
+  const [hockeyNextPickIsMine, setHockeyNextPickIsMine] = useState(false);
+  const [hockeySlotOverrides, setHockeySlotOverrides] = useState<Partial<Record<string, HockeyRosterSlotLabel>>>(
+    loadHockeySlotOverrides
+  );
+
+  useEffect(() => {
+    localStorage.setItem(SPORT_KEY, sport);
+  }, [sport]);
+
+  useEffect(() => {
+    localStorage.setItem(HOCKEY_TAKEN_KEY, JSON.stringify(hockeyTakenIds));
+  }, [hockeyTakenIds]);
+
+  useEffect(() => {
+    localStorage.setItem(HOCKEY_SLOT_OVERRIDES_KEY, JSON.stringify(hockeySlotOverrides));
+  }, [hockeySlotOverrides]);
+
+  useEffect(() => {
+    localStorage.setItem(HOCKEY_PICKS_KEY, JSON.stringify(hockeyDraftedIds));
+  }, [hockeyDraftedIds]);
+
+  useEffect(() => {
+    localStorage.setItem(HOCKEY_KEEPERS_LOADED_KEY, String(hockeyKeepersLoaded));
+  }, [hockeyKeepersLoaded]);
 
   useEffect(() => {
     localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
@@ -328,6 +403,107 @@ export default function App() {
     reader.readAsText(file);
   }
 
+  function handleSportChange(next: Sport) {
+    setSport(next);
+    setActiveView("board");
+  }
+
+  const effectiveHockeyPlayers = useMemo(
+    () => (hockeyKeepersLoaded ? hockeyPlayers : hockeyPlayers.map((p) => ({ ...p, rosterStatus: "FA" }))),
+    [hockeyKeepersLoaded]
+  );
+
+  const hockeyPlayersById = useMemo(
+    () => Object.fromEntries(effectiveHockeyPlayers.map((p) => [p.id, p])),
+    [effectiveHockeyPlayers]
+  );
+
+  const myHockeyKeeperIds = useMemo(
+    () => effectiveHockeyPlayers.filter((p) => p.rosterStatus === MY_HOCKEY_TEAM).map((p) => p.id),
+    [effectiveHockeyPlayers]
+  );
+
+  // A pick made while keepers were unloaded stops counting once the player is actually kept again (by anyone),
+  // so a reload never lets someone else's keeper masquerade as one of your picks.
+  const hockeyDraftedNotAlreadyKept = useMemo(
+    () => hockeyDraftedIds.filter((id) => hockeyPlayersById[id]?.rosterStatus === "FA"),
+    [hockeyDraftedIds, hockeyPlayersById]
+  );
+
+  const hockeyRosterSlots = useMemo(
+    () =>
+      buildHockeyRosterSlots(
+        [...myHockeyKeeperIds, ...hockeyDraftedNotAlreadyKept],
+        hockeyPlayersById,
+        hockeySlotOverrides
+      ),
+    [myHockeyKeeperIds, hockeyDraftedNotAlreadyKept, hockeyPlayersById, hockeySlotOverrides]
+  );
+
+  const isHockeyRosterFull = myHockeyKeeperIds.length + hockeyDraftedNotAlreadyKept.length >= HOCKEY_ROSTER_TEMPLATE.length;
+  const hockeyDraftedIdSet = useMemo(() => new Set(hockeyDraftedIds), [hockeyDraftedIds]);
+  const hockeyTakenIdSet = useMemo(() => new Set(hockeyTakenIds), [hockeyTakenIds]);
+
+  function handleDraftHockeyPlayer(playerId: string) {
+    setHockeyDraftedIds((prev) => {
+      if (prev.includes(playerId)) return prev;
+      if (myHockeyKeeperIds.length + hockeyDraftedNotAlreadyKept.length >= HOCKEY_ROSTER_TEMPLATE.length) return prev;
+      return [...prev, playerId];
+    });
+    setHockeyTakenIds((prev) => prev.filter((id) => id !== playerId));
+  }
+
+  function handleMarkHockeyTaken(playerId: string) {
+    setHockeyTakenIds((prev) => (prev.includes(playerId) ? prev : [...prev, playerId]));
+    setHockeyDraftedIds((prev) => prev.filter((id) => id !== playerId));
+  }
+
+  /** The single Draft button routes to your team only when armed; otherwise it just marks the player taken. */
+  function handleHockeyDraftClick(playerId: string) {
+    if (hockeyNextPickIsMine) {
+      handleDraftHockeyPlayer(playerId);
+      setHockeyNextPickIsMine(false);
+    } else {
+      handleMarkHockeyTaken(playerId);
+    }
+  }
+
+  function handleToggleHockeyNextPickIsMine() {
+    setHockeyNextPickIsMine((prev) => !prev);
+  }
+
+  function handleUndoHockeyDraft(playerId: string) {
+    setHockeyDraftedIds((prev) => prev.filter((id) => id !== playerId));
+    setHockeyTakenIds((prev) => prev.filter((id) => id !== playerId));
+    setHockeySlotOverrides((prev) => {
+      if (!(playerId in prev)) return prev;
+      const next = { ...prev };
+      delete next[playerId];
+      return next;
+    });
+  }
+
+  function handleClearHockeyPicks() {
+    setHockeyDraftedIds([]);
+    setHockeyTakenIds([]);
+  }
+
+  function handleToggleHockeyKeepers() {
+    setHockeyKeepersLoaded((prev) => !prev);
+  }
+
+  function handleMoveHockeyPlayerToSlot(playerId: string, targetLabel: HockeyRosterSlotLabel) {
+    setHockeySlotOverrides((prev) => ({ ...prev, [playerId]: targetLabel }));
+  }
+
+  function handleResetHockeyBoard() {
+    setHockeyDraftedIds([]);
+    setHockeyTakenIds([]);
+    setHockeySlotOverrides({});
+    setHockeyNextPickIsMine(false);
+    setHockeyKeepersLoaded(false);
+  }
+
   const canSave = Object.values(selections).some(Boolean);
 
   return (
@@ -335,11 +511,43 @@ export default function App() {
       <Sidebar
         active={activeView}
         onNavigate={setActiveView}
+        sport={sport}
+        onSportChange={handleSportChange}
         onExportData={handleExportData}
         onImportData={handleImportData}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        {activeView === "board" ? (
+        {sport === "hockey" ? (
+          <>
+            <TopBanner title="Hockey Draft Board" right={<Badge label={`${hockeyPlayers.length} Players`} />} />
+            <div className="flex flex-1 gap-6 overflow-hidden bg-slate-100 p-6">
+              <HockeyTeamPanel
+                slots={hockeyRosterSlots}
+                playersById={hockeyPlayersById}
+                myTeamName={MY_HOCKEY_TEAM}
+                onUndoDraft={handleUndoHockeyDraft}
+                onClearPicks={handleClearHockeyPicks}
+                canClearPicks={hockeyDraftedIds.length > 0 || hockeyTakenIds.length > 0}
+                keepersLoaded={hockeyKeepersLoaded}
+                onToggleKeepers={handleToggleHockeyKeepers}
+                nextPickIsMine={hockeyNextPickIsMine}
+                onToggleNextPickIsMine={handleToggleHockeyNextPickIsMine}
+                onMoveToSlot={handleMoveHockeyPlayerToSlot}
+                onResetBoard={handleResetHockeyBoard}
+              />
+              <HockeyDraftBoard
+                players={effectiveHockeyPlayers}
+                myTeamName={MY_HOCKEY_TEAM}
+                draftedByMeIds={hockeyDraftedIdSet}
+                takenByOthersIds={hockeyTakenIdSet}
+                isRosterFull={isHockeyRosterFull}
+                nextPickIsMine={hockeyNextPickIsMine}
+                onDraftPlayer={handleHockeyDraftClick}
+                onUndoDraft={handleUndoHockeyDraft}
+              />
+            </div>
+          </>
+        ) : activeView === "board" ? (
           <>
             <TopBanner title="Draft Board" />
             <div className="flex flex-1 justify-center overflow-x-auto overflow-y-hidden bg-slate-100 p-6">

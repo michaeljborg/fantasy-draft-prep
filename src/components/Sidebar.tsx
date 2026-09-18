@@ -1,6 +1,7 @@
 import { useRef } from "react";
 
 export type View = "board" | "myTeams" | "notes" | "draftTree";
+export type Sport = "football" | "hockey";
 
 interface NavItemProps {
   label: string;
@@ -37,11 +38,13 @@ function NavItem({ label, active, disabled, onClick }: NavItemProps) {
 interface SidebarProps {
   active: View;
   onNavigate: (view: View) => void;
+  sport: Sport;
+  onSportChange: (sport: Sport) => void;
   onExportData: () => void;
   onImportData: (file: File) => void;
 }
 
-export function Sidebar({ active, onNavigate, onExportData, onImportData }: SidebarProps) {
+export function Sidebar({ active, onNavigate, sport, onSportChange, onExportData, onImportData }: SidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -58,11 +61,37 @@ export function Sidebar({ active, onNavigate, onExportData, onImportData }: Side
         </div>
         <span className="text-xs font-bold uppercase tracking-wide text-white">Draft Prep</span>
       </div>
+      <div className="border-b border-white/10 px-2.5 py-3">
+        <div className="flex rounded-md bg-white/5 p-1">
+          <button
+            type="button"
+            onClick={() => onSportChange("football")}
+            className={`flex-1 rounded px-2 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
+              sport === "football" ? "bg-blue-500 text-white" : "text-blue-200 hover:text-white"
+            }`}
+          >
+            Football
+          </button>
+          <button
+            type="button"
+            onClick={() => onSportChange("hockey")}
+            className={`flex-1 rounded px-2 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
+              sport === "hockey" ? "bg-blue-500 text-white" : "text-blue-200 hover:text-white"
+            }`}
+          >
+            Hockey
+          </button>
+        </div>
+      </div>
       <nav className="flex-1 px-2.5 py-4">
         <NavItem label="Draft Board" active={active === "board"} onClick={() => onNavigate("board")} />
-        <NavItem label="My Teams" active={active === "myTeams"} onClick={() => onNavigate("myTeams")} />
-        <NavItem label="Notes" active={active === "notes"} onClick={() => onNavigate("notes")} />
-        <NavItem label="Draft Tree" active={active === "draftTree"} onClick={() => onNavigate("draftTree")} />
+        {sport === "football" && (
+          <>
+            <NavItem label="My Teams" active={active === "myTeams"} onClick={() => onNavigate("myTeams")} />
+            <NavItem label="Notes" active={active === "notes"} onClick={() => onNavigate("notes")} />
+            <NavItem label="Draft Tree" active={active === "draftTree"} onClick={() => onNavigate("draftTree")} />
+          </>
+        )}
       </nav>
       <div className="border-t border-white/10 px-2.5 py-3">
         <button
