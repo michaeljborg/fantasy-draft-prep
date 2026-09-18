@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { HOCKEY_POSITION_STYLES } from "../positionStyles";
-import type { HockeyPlayer } from "../types";
+import type { HockeyPosition, HockeyPlayer } from "../types";
 import { Th } from "./RankingsPanel";
 
 type ViewMode = "skaters" | "goalies";
+
+const SKATER_POSITIONS: (HockeyPosition | "ALL")[] = ["ALL", "C", "LW", "RW", "D"];
 
 type SortKey =
   | "preSeason"
@@ -55,11 +57,13 @@ export function HockeyDraftBoard({
   const [sortKey, setSortKey] = useState<SortKey>("preSeason");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [searchQuery, setSearchQuery] = useState("");
+  const [positionFilter, setPositionFilter] = useState<HockeyPosition | "ALL">("ALL");
 
   function changeView(mode: ViewMode) {
     setViewMode(mode);
     setSortKey("preSeason");
     setSortDirection("asc");
+    setPositionFilter("ALL");
   }
 
   function toggleSort(key: SortKey) {
@@ -139,9 +143,12 @@ export function HockeyDraftBoard({
 
   const filtered = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return sorted;
-    return sorted.filter((p) => p.name.toLowerCase().includes(query));
-  }, [sorted, searchQuery]);
+    return sorted.filter(
+      (p) =>
+        (positionFilter === "ALL" || p.positions.includes(positionFilter)) &&
+        (!query || p.name.toLowerCase().includes(query))
+    );
+  }, [sorted, searchQuery, positionFilter]);
 
   const keeperCount = useMemo(() => players.filter((p) => p.rosterStatus === myTeamName).length, [players, myTeamName]);
 
@@ -182,6 +189,19 @@ export function HockeyDraftBoard({
             </button>
           )}
         </div>
+        {viewMode === "skaters" && (
+          <select
+            value={positionFilter}
+            onChange={(e) => setPositionFilter(e.target.value as HockeyPosition | "ALL")}
+            className="rounded border border-slate-300 bg-white px-2.5 py-1 text-sm font-medium text-slate-700 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+          >
+            {SKATER_POSITIONS.map((pos) => (
+              <option key={pos} value={pos}>
+                {pos === "ALL" ? "All Positions" : pos}
+              </option>
+            ))}
+          </select>
+        )}
         <span className="ml-auto text-xs text-slate-400">
           {filtered.length} players · {keeperCount}/3 of your keepers shown
         </span>
