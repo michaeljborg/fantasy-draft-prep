@@ -166,25 +166,6 @@ Five independent `localStorage` keys, each owned by one `useState` +
 | `fantasy-draft-trees` | `DraftTree[]` | `trees` |
 | `fantasy-draft-watchlist` | `string[]` (player ids) | `watchlistIds` (a `Set<string>` in memory) |
 
-Pattern used for all five (see `App.tsx`'s `loadX` functions): read the key,
-`JSON.parse` it inside a `try/catch` (so corrupted or missing data never
-crashes the app — it just falls back to an empty default), and write it back
-with `JSON.stringify` inside a `useEffect` keyed on that piece of state. The
-watchlist is the one exception that needs conversion at both ends, since
-`Set` isn't directly JSON-serializable: `Array.from(set)` going out,
-`new Set(parsedArray)` coming back in.
-
-`loadNotes` additionally **backfills** fields (`title`, `width`, `height`)
-that were added to the `Note` shape after the feature first shipped, so
-notes saved by an older version of the app don't break on load — the
-general pattern to follow if a persisted shape ever gains new required-
-looking fields later.
-
-**What is *not* persisted:** the live Draft Board's `config`
-(teams/slot/rounds), `selections` (picks in progress), and `armedPick` all
-reset on page reload — only *saved* teams, trees, notes, overrides, and the
-watchlist survive a refresh.
-
 **Export / Import**, in the sidebar's bottom section, moves all five keys
 between browsers/devices as one file:
 - **Export** bundles all five pieces of state (`overrides`, `savedTeams`,
